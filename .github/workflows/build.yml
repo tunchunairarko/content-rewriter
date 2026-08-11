@@ -36,10 +36,24 @@ jobs:
 
       - name: Build executable
         run: >
-          uv run --with pyinstaller pyinstaller --noconfirm --clean --onefile --windowed
-          --name content-rewriter src/content_rewriter/__main__.py
+          uv run --with pyinstaller pyinstaller --noconfirm --clean --onedir --windowed
+          --name content-rewriter --paths src src/content_rewriter/__main__.py
+
+      - name: Smoke test the executable
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ./dist/content-rewriter/content-rewriter --self-check
+
+      - name: Smoke test the executable
+        if: runner.os == 'macOS'
+        run: ./dist/content-rewriter/content-rewriter --self-check
+
+      - name: Smoke test the executable
+        if: runner.os == 'Windows'
+        run: ./dist/content-rewriter/content-rewriter.exe --self-check
 
       - uses: actions/upload-artifact@v4
         with:
           name: content-rewriter-${{ matrix.os }}
           path: dist/
+          if-no-files-found: error
+          retention-days: 30
