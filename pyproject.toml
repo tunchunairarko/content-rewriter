@@ -1,0 +1,18 @@
+[project]
+name = "content-rewriter"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["PyQt6>=6.7"]
+
+[project.scripts]
+content-rewriter = "content_rewriter.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-qt>=4.4"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

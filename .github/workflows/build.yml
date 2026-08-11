@@ -1,0 +1,45 @@
+name: build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 xvfb
+
+      - run: uv sync --all-groups
+
+      - name: Test
+        run: uv run pytest
+        if: runner.os != 'Linux'
+
+      - name: Test
+        run: xvfb-run -a uv run pytest
+        if: runner.os == 'Linux'
+
+      - name: Build executable
+        run: >
+          uv run --with pyinstaller pyinstaller --noconfirm --clean --onefile --windowed
+          --name content-rewriter src/content_rewriter/__main__.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: content-rewriter-${{ matrix.os }}
+          path: dist/
