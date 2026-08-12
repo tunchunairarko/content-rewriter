@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Callable, Optional, Protocol
 
 from content_rewriter.cleaning import clean
-from content_rewriter.documents import load, output_path_for, save
 
 
 class Stage(str, Enum):
@@ -16,7 +15,7 @@ class Stage(str, Enum):
     CLEANING = "Stripping hidden characters"
     REWRITING = "Humanising with the model"
     POLISHING = "Polishing the response"
-    WRITING = "Writing output file"
+    WRITING = "Building output file"
     DONE = "Finished"
 
 
@@ -30,7 +29,6 @@ Progress = Optional[Callable[[Stage], None]]
 @dataclass(frozen=True)
 class Result:
     text: str
-    path: Optional[Path] = None
 
 
 def run_text(text: str, rewriter: SupportsRewrite, progress: Progress = None) -> Result:
@@ -51,22 +49,6 @@ def run_text(text: str, rewriter: SupportsRewrite, progress: Progress = None) ->
     return Result(text=polished)
 
 
-def run_file(path: Path, rewriter: SupportsRewrite, progress: Progress = None) -> Result:
-    report = progress or (lambda stage: None)
-    path = Path(path)
-
-    report(Stage.READING)
-    original = load(path)
-
-    result = run_text(original, rewriter, progress=_skip_done(report))
-
-    report(Stage.WRITING)
-    target = save(output_path_for(path), result.text)
-
-    report(Stage.DONE)
-    return Result(text=result.text, path=target)
-
-
 def write_error_log(error: BaseException, directory: Optional[Path] = None) -> Path:
     directory = Path(directory) if directory else Path.cwd()
     directory.mkdir(parents=True, exist_ok=True)
@@ -81,7 +63,7 @@ def write_error_log(error: BaseException, directory: Optional[Path] = None) -> P
     path.write_text(
         "\n".join(
             [
-                f"Content Rewriter error log",
+                "Content Rewriter error log",
                 f"Time: {datetime.now().isoformat(timespec='seconds')}",
                 f"Platform: {platform.platform()}",
                 f"Python: {sys.version.split()[0]}",
@@ -93,11 +75,3 @@ def write_error_log(error: BaseException, directory: Optional[Path] = None) -> P
         encoding="utf-8",
     )
     return path
-
-
-def _skip_done(report: Callable[[Stage], None]) -> Callable[[Stage], None]:
-    def forward(stage: Stage) -> None:
-        if stage is not Stage.DONE:
-            report(stage)
-
-    return forward

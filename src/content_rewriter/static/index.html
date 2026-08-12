@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Rewriter</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="shell">
+  <header class="masthead">
+    <div>
+      <h1>Content Rewriter</h1>
+      <p class="subtitle">Strip the machine tells, keep the meaning.</p>
+    </div>
+    <div class="status" id="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden>
+    <span id="bannerText"></span>
+    <button class="ghost" id="bannerAction" hidden></button>
+    <button class="ghost" id="bannerDismiss">Dismiss</button>
+  </div>
+
+  <section class="panes">
+    <article class="card" id="sourceCard">
+      <h2 class="cardLabel">Source</h2>
+
+      <div class="chip" id="chip" hidden>
+        <span id="chipName"></span>
+        <button class="ghost" id="chipClear">Clear</button>
+      </div>
+
+      <textarea id="editor" spellcheck="false"
+        placeholder="Paste your text here, or drop a .txt, .md or .docx file anywhere on this panel."></textarea>
+      <div class="rendered" id="sourceRendered" hidden></div>
+
+      <footer class="cardFooter">
+        <button id="openFile">Open file</button>
+        <input type="file" id="fileInput" accept=".txt,.md,.markdown,.docx" hidden>
+        <span class="meta" id="sourceCount">0 characters</span>
+      </footer>
+    </article>
+
+    <article class="card">
+      <h2 class="cardLabel">Result</h2>
+      <div class="rendered" id="resultRendered">
+        <p class="placeholder">The humanised version will appear here.</p>
+      </div>
+      <footer class="cardFooter">
+        <button id="copy" disabled>Copy</button>
+        <button id="download" disabled>Download</button>
+        <span class="meta" id="resultCount"></span>
+      </footer>
+    </article>
+  </section>
+
+  <footer class="controls">
+    <div class="progress"><div class="chunk" id="chunk"></div></div>
+    <div class="controlRow">
+      <span class="meta" id="stage">Idle</span>
+      <button class="primary" id="run">Humanise</button>
+    </div>
+  </footer>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

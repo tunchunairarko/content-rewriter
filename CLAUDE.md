@@ -4,13 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A PyQt6 desktop app (Python 3.12, uv) that takes text or a document, strips the machine tells from
-it, sends it through OpenRouter to be humanised, and returns the result in the input's format.
+A local web app (Python 3.12, uv, FastAPI) that takes text or a document, strips the machine tells
+from it, sends it through OpenRouter to be humanised, and returns the result in the input's format.
+It runs on `127.0.0.1` and opens a browser tab; it is not built to be deployed publicly.
+
+It started as a PyQt6 desktop app. That was abandoned because the packaged executable could not
+find its credentials: `python-dotenv` searches from `os.getcwd()` when `sys.frozen` is set, and a
+double-clicked macOS `.app` has a working directory of `/`. A server started from a directory makes
+`.env` resolution ordinary again. Do not reintroduce a frozen-binary build without solving that.
 
 ## Architecture
 
-The pipeline is pure Python with no Qt import anywhere except `ui.py`, which is what makes it
-testable without a display:
+Everything except `web.py` is pure Python with no web framework import, which is what keeps the
+pipeline testable on its own:
 
 - `cleaning.py` — `clean()`, the single text transform. NFKC normalise, drop invisible/bidi
   characters, transliterate punctuation (curly quotes, ellipsis, nbsp) to ASCII, dashes to a
@@ -24,31 +30,36 @@ testable without a display:
   `List Number` → `1.`, `Quote` → `>`, bold/italic runs → `**`/`*`) and written back out of markdown
   the same way, so headings, lists and emphasis survive the round trip. `.txt` is plain, `.md` is
   already markdown. `kind_of()` reports whether a path carries markdown, which is what drives
-  rendering in the UI. `.doc` is deliberately unsupported — it would need LibreOffice.
+  rendering. `.doc` is deliberately unsupported — it would need LibreOffice.
 - `prompt.py` — `SYSTEM_PROMPT`, the one static multiline string that instructs the model. It is
   deliberately not configurable: it is product behaviour, not deployment config, so it belongs in
   source and never in `.env`.
 - `rewriter.py` — `Settings.from_env()` (python-dotenv) plus a `Rewriter` wrapping the OpenAI SDK
   pointed at OpenRouter's base URL. Injectable `client` for tests. `Settings` carries credentials
   and model choice only.
-- `pipeline.py` — `run_text` / `run_file`, a `Stage` enum reported through a `progress` callback,
-  and `write_error_log`. **`clean()` runs twice**: once on input, once on the model's reply, because
+- `pipeline.py` — `run_text`, a `Stage` enum reported through a `progress` callback, and
+  `write_error_log`. **`clean()` runs twice**: once on input, once on the model's reply, because
   models happily reintroduce em dashes and curly quotes.
-- `ui.py` — the window. Work runs in a `Worker(QThread)`; stages arrive as signals and drive an
-  animated `QProgressBar` via `STAGE_PROGRESS`. Every failure path routes through
-  `Window.report_failure`, which writes `log_${timestamp}.txt` and surfaces it in the banner.
-  Both panes render through `Window._render`, which picks `setMarkdown` or `setPlainText` from
-  `source_kind`. The rendered widget is display only: `source_text` and `result_text` hold the raw
-  strings, and copy/save must read those, never `toPlainText()`, or the markers are lost.
-- `theme.py` — colour constants and the app-wide QSS.
+- `web.py` — the FastAPI app. `POST /api/rewrite` runs the pipeline on a worker thread and streams
+  **NDJSON** (one `{stage, label, progress}` line per stage, then a final `{done, text, html, kind,
+  filename}` or `{error, log}`). NDJSON over `fetch` rather than SSE, because `EventSource` is
+  GET-only and would force a job-id handshake and server-side state. `POST /api/preview` renders an
+  upload for the source pane; `POST /api/download` rebuilds a file from raw text on demand, which
+  is the only place `documents.save` runs. Tests replace `build_rewriter` — it is called *inside*
+  the worker's `try`, so a missing API key becomes an error payload rather than a 500.
+- `static/` — `index.html`, `style.css`, `app.js`. No build step, no npm, no framework.
 
-Anything blocking belongs in the worker, never on the GUI thread.
+## Threading
+
+The OpenAI SDK call is blocking, so the pipeline runs in a `threading.Thread` that feeds a
+`queue.Queue`, drained with `asyncio.to_thread`. Nothing blocking may run directly in an async route
+handler — it would stall the event loop for every other request.
 
 ## Configuration
 
 `.env` (see `.env.example`, never committed): `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`,
 `OPENROUTER_BASE_URL`, `REWRITE_TEMPERATURE`, `LOG_DIR`. A missing API key surfaces as an error
-banner at startup, not a crash. The system prompt is not among these — edit `prompt.py`.
+banner on the first run, not a crash. The system prompt is not among these — edit `prompt.py`.
 
 ## TDD
 
@@ -60,36 +71,40 @@ Tests come first, always:
 4. Refactor only with the suite green.
 
 Never write production code without a failing test demanding it. Never add functionality a test
-does not cover. Use `pytest-qt`'s `qtbot` for widget behavior; keep logic out of widgets so most
-tests need no Qt at all.
+does not cover. Routes are tested through `TestClient` with `build_rewriter` monkeypatched, so the
+suite never touches the network and needs no browser.
 
 ## Commands
 
 ```bash
 uv sync                  # install deps from pyproject.toml/uv.lock
-uv run content-rewriter  # run the app
-QT_QPA_PLATFORM=offscreen uv run pytest   # headless UI tests (CI uses xvfb on Linux)
+uv run content-rewriter  # start the server and open a browser
+uv run content-rewriter --no-browser --port 8791   # for scripted checks
 uv run pytest            # tests
 uv run pytest path/to/test_x.py::test_name   # single test
 uv add <pkg>             # add a dependency (never edit pyproject deps by hand)
 uv add --dev <pkg>       # dev-only dependency
 ```
 
-CI: `.github/workflows/build.yml`, manual `workflow_dispatch` only. Run it from the master branch
-to test + build PyInstaller executables for Linux/macOS/Windows; binaries land as run artifacts.
+CI: `.github/workflows/build.yml`, manual `workflow_dispatch` only. Runs the suite on
+Linux/macOS/Windows and checks the app's routes register.
 
 ## Conventions
 
 - No code comments. Write self-explanatory names instead. This includes docstrings on obvious
   functions and `ponytail:` markers — leave them out.
-- No gradients anywhere. Flat fills only: no `qlineargradient`/`qradialgradient`/`qconicalgradient`
-  in QSS, no `QLinearGradient`/`QRadialGradient` in painting code. Use solid colours from
-  `theme.py` and get depth from borders, elevation and shadows instead.
+- No gradients anywhere. Flat fills only: no `linear-gradient`/`radial-gradient`/`conic-gradient`
+  in CSS. Use the solid colours from the custom properties in `style.css` and get depth from
+  borders, elevation and shadows instead.
 - Rendering must match the input's actual format. A markdown or `.docx` source is displayed as
-  formatted text, never as raw markers; a `.txt` source is displayed verbatim. The output file keeps
-  the input's format and structure — headings stay headings, lists stay lists, emphasis stays
-  emphasis. Supported formats are `.txt`, `.md` and `.docx` only; no `.doc`, since it would drag in
-  a LibreOffice dependency.
+  formatted text, never as raw markers; a `.txt` source and typed text are displayed verbatim in a
+  `<pre>`. The downloaded file keeps the input's format and structure — headings stay headings,
+  lists stay lists, emphasis stays emphasis. Supported formats are `.txt`, `.md` and `.docx` only.
+- Markdown is rendered server-side by `markdown-it-py` with `html=False`, so model output cannot
+  inject markup. Never set `innerHTML` from anything that has not been through it.
+- The rendered pane is display only. `state.resultText` holds the raw string, and copy and download
+  must read that, never `innerText`, or the markers are lost.
+- Bind to `127.0.0.1` only. The process holds an API key; it must never listen on a public
+  interface.
 - All Python runs through `uv run` — do not use a manually activated venv or bare `python`.
-- Qt work belongs on the GUI thread; anything blocking (network, disk, model calls) goes to a
-  `QThread`/`QRunnable` and reports back via signals.
+- No frontend build step. If something seems to need npm, it does not belong here.

@@ -1,6 +1,7 @@
 import pytest
 
-from content_rewriter.pipeline import Stage, run_file, run_text, write_error_log
+from content_rewriter.documents import load, output_path_for, save
+from content_rewriter.pipeline import Stage, run_text, write_error_log
 
 
 class StubRewriter:
@@ -43,30 +44,7 @@ def test_run_text_rejects_input_that_is_only_strippable():
         run_text("😀😀", StubRewriter())
 
 
-def test_run_file_writes_a_sibling_output(tmp_path):
-    source = tmp_path / "essay.md"
-    source.write_text("original — content\n", encoding="utf-8")
-
-    result = run_file(source, StubRewriter())
-
-    assert result.path == tmp_path / "essay.rewritten.md"
-    assert result.path.read_text(encoding="utf-8") == "humanized text"
-    assert result.text == "humanized text"
-
-
-def test_run_file_reports_read_and_write_stages(tmp_path):
-    source = tmp_path / "essay.txt"
-    source.write_text("content", encoding="utf-8")
-
-    seen = []
-    run_file(source, StubRewriter(), progress=lambda stage: seen.append(stage))
-
-    assert seen[0] == Stage.READING
-    assert Stage.WRITING in seen
-    assert seen[-1] == Stage.DONE
-
-
-def test_docx_formatting_survives_the_whole_pipeline(tmp_path):
+def test_docx_formatting_survives_load_rewrite_save(tmp_path):
     docx = pytest.importorskip("docx")
 
     source = tmp_path / "report.docx"
@@ -85,11 +63,13 @@ def test_docx_formatting_survives_the_whole_pipeline(tmp_path):
             return text
 
     echo = Echo()
-    result = run_file(source, echo)
+    result = run_text(load(source), echo)
+    target = save(output_path_for(source), result.text)
 
     assert echo.seen == "# Report\n\nintro, with **emphasis**\n\n- one\n- two"
+    assert target == tmp_path / "report.rewritten.docx"
 
-    written = docx.Document(result.path)
+    written = docx.Document(target)
     assert [p.style.name for p in written.paragraphs] == [
         "Heading 1",
         "Normal",
@@ -99,12 +79,9 @@ def test_docx_formatting_survives_the_whole_pipeline(tmp_path):
     assert [run.text for run in written.paragraphs[1].runs if run.bold] == ["emphasis"]
 
 
-def test_failures_propagate(tmp_path):
-    source = tmp_path / "essay.txt"
-    source.write_text("content", encoding="utf-8")
-
+def test_failures_propagate():
     with pytest.raises(RuntimeError):
-        run_file(source, FailingRewriter())
+        run_text("content", FailingRewriter())
 
 
 def test_write_error_log_names_file_with_timestamp(tmp_path):
