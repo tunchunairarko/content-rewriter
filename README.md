@@ -5,9 +5,10 @@ person wrote it in one sitting.
 
 It removes invisible Unicode, em and en dashes, curly quotes, ellipsis characters, emoji and
 everything else outside plain ASCII, then sends the result through
-[OpenRouter](https://openrouter.ai) with a prompt that preserves meaning while varying rhythm and
-adding a very small amount of natural grammatical noise. The reply is cleaned a second time,
-because models cheerfully reintroduce em dashes.
+[OpenRouter](https://openrouter.ai) with a prompt that asks for a genuine rewrite: every fact,
+figure and name carried over exactly, in the model's own sentences, with deliberate variation in
+sentence length. The reply is cleaned a second time, because models cheerfully reintroduce em
+dashes.
 
 Documents keep their shape. A `.docx` with headings, lists and bold comes back as a `.docx` with
 headings, lists and bold.
@@ -43,9 +44,11 @@ Paste text into the left pane, or drop a `.txt`, `.md` or `.docx` file onto it. 
 Terms listed in **Keep these terms unchanged** are pinned: the model is told to reproduce each one
 letter for letter and rewrite only the sentences around it. If one goes missing anyway, the banner
 names it rather than letting it vanish quietly. Pin sparingly, though. Pinned text is text that
-was not rewritten, so a long list gives back the uniformity the rewrite exists to break up. Progress runs along the bottom as the text is cleaned, sent to the
-model, and cleaned again. When it finishes, **Copy** puts the raw text on your clipboard and
-**Download** gives you a file in the original format.
+was not rewritten, so a long list gives back the uniformity the rewrite exists to break up.
+
+Progress runs along the bottom as the text is cleaned, sent to the model, and cleaned again. When it
+finishes, **Copy** puts the raw text on your clipboard and **Download** gives you a file in the
+original format.
 
 Markdown and `.docx` sources are shown rendered, since that is their actual format. A `.txt` file
 and text you type are shown verbatim, markers and all.
