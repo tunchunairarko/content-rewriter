@@ -68,6 +68,8 @@ behaviour rather than deployment config, so it lives in
 
 ## Self-hosting with pm2
 
+To keep it running on an always-on machine:
+
 ```bash
 cp .env.example .env      # add your key
 pm2 start ecosystem.config.js
@@ -83,10 +85,10 @@ and `exec`s the server so pm2 supervises the real process rather than a wrapper 
 
 ### A warning about exposing it
 
-`ecosystem.config.js` sets `HOST=0.0.0.0` so the app is reachable from the network. **The app has
-no authentication.** Anyone who can reach that port can spend your OpenRouter credit. That is fine
-on a private network you control. Do not port-forward it to the internet without putting
-an authenticating reverse proxy in front.
+`ecosystem.config.js` sets `HOST=0.0.0.0` so the app is reachable from other machines on the same
+network. **The app has no authentication.** Anyone who can reach that port can spend your OpenRouter
+credit. That is fine on a private network you control. Do not expose it to the internet without
+putting an authenticating reverse proxy in front.
 
 ## Security
 

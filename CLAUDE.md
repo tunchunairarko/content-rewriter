@@ -101,9 +101,9 @@ pm2 start ecosystem.config.js && pm2 save
 ```
 
 The ecosystem file sets `HOST=0.0.0.0`, which is the one place the loopback rule is deliberately
-broken so the app is reachable from the network. Anyone who can reach that port can spend the configured
-OpenRouter credit, so it belongs on a private network, or behind a reverse proxy
-that authenticates. Do not copy that setting into local development.
+broken so the app is reachable from other machines on the same network. Anyone who can reach that
+port can spend the configured OpenRouter credit, so it belongs on a private network, or behind a
+reverse proxy that authenticates. Do not copy that setting into local development.
 
 `--no-dev` prunes pytest from the venv, so after running `start.sh` on a dev machine, restore the
 test tooling with `uv sync --all-groups`.
