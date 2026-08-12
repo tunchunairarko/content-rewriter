@@ -108,6 +108,25 @@ that authenticates. Do not copy that setting into local development.
 `--no-dev` prunes pytest from the venv, so after running `start.sh` on a dev machine, restore the
 test tooling with `uv sync --all-groups`.
 
+## Security invariants
+
+Each of these has a test; do not weaken one without reading why it exists.
+
+- **Cross-origin POSTs are rejected** by the `same_origin` dependency on every mutating route. A
+  `multipart/form-data` POST is a CORS-simple request, so without this check any web page could
+  drive `/api/rewrite` against the server's address and spend the configured OpenRouter credit.
+- **Uploads are capped** at `MAX_UPLOAD_BYTES`. Starlette's 1 MB `max_part_size` applies only to
+  ordinary form fields — file parts are unbounded and `await file.read()` pulls them into memory,
+  which a small host does not survive.
+- **`.docx` archives are size-checked** before parsing. A 78 KB zip can declare 80 MB of XML;
+  `_reject_oversized_archive` reads the central directory rather than trusting the upload's size.
+  It trusts the archive's declared sizes, so it stops naive bombs, not forged headers.
+- **Markdown is rendered server-side** with `html=False`. `markdown-it-py` also refuses
+  `javascript:`, `vbscript:` and non-image `data:` URLs, which is why raw model output can be put
+  into `innerHTML` at all. Never bypass it.
+- The app has **no authentication**. That is a deliberate choice for a private-network tool, documented in the
+  README. If that ever changes, it changes in front of the app, not inside it.
+
 ## Conventions
 
 - No code comments. Write self-explanatory names instead. This includes docstrings on obvious

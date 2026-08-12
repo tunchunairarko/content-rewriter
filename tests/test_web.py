@@ -286,3 +286,50 @@ def test_port_flag_beats_the_environment(monkeypatch):
     monkeypatch.setenv("PORT", "9000")
     assert resolve_port([]) == 9000
     assert resolve_port(["--port", "8080"]) == 8080
+
+
+def test_oversized_upload_is_refused(client, stub):
+    from content_rewriter.web import MAX_UPLOAD_BYTES
+
+    response = client.post(
+        "/api/rewrite",
+        files={"file": ("big.txt", b"x" * (MAX_UPLOAD_BYTES + 1), "text/plain")},
+    )
+    assert response.status_code == 413
+
+
+def test_oversized_preview_is_refused(client):
+    from content_rewriter.web import MAX_UPLOAD_BYTES
+
+    response = client.post(
+        "/api/preview",
+        files={"file": ("big.txt", b"x" * (MAX_UPLOAD_BYTES + 1), "text/plain")},
+    )
+    assert response.status_code == 413
+
+
+def test_upload_at_the_limit_is_accepted(client, stub):
+    from content_rewriter.web import MAX_UPLOAD_BYTES
+
+    response = client.post(
+        "/api/rewrite",
+        files={"file": ("ok.txt", b"x" * (MAX_UPLOAD_BYTES - 1), "text/plain")},
+    )
+    assert response.status_code == 200
+
+
+def test_cross_origin_post_is_rejected(client, stub):
+    for path in ("/api/rewrite", "/api/preview", "/api/download"):
+        response = client.post(path, headers={"Origin": "http://evil.example"})
+        assert response.status_code == 403, path
+
+
+def test_same_origin_post_is_allowed(client, stub):
+    response = client.post(
+        "/api/rewrite", data={"text": "hello"}, headers={"Origin": "http://testserver"}
+    )
+    assert response.status_code == 200
+
+
+def test_post_without_an_origin_header_is_allowed(client, stub):
+    assert client.post("/api/rewrite", data={"text": "hello"}).status_code == 200

@@ -1,8 +1,11 @@
 import re
+import zipfile
 from enum import Enum
 from pathlib import Path
 
 import docx
+
+MAX_DOCX_UNCOMPRESSED = 64 * 1024 * 1024
 
 PLAIN_SUFFIXES = {".txt", ""}
 MARKDOWN_SUFFIXES = {".md", ".markdown", ".mdown", ".mkd"}
@@ -58,6 +61,7 @@ def load(path: Path) -> str:
     if suffix in TEXT_SUFFIXES:
         return path.read_text(encoding="utf-8", errors="replace")
     if suffix in DOCX_SUFFIXES:
+        _reject_oversized_archive(path)
         return _docx_to_markdown(docx.Document(path))
 
     raise UnsupportedFormat(f"{suffix or path.name} is not supported. Use .txt, .md or .docx.")
@@ -81,6 +85,19 @@ def save(path: Path, text: str) -> Path:
 def output_path_for(path: Path) -> Path:
     path = Path(path)
     return path.with_name(f"{path.stem}.rewritten{path.suffix.lower() or '.txt'}")
+
+
+def _reject_oversized_archive(path: Path) -> None:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            uncompressed = sum(item.file_size for item in archive.infolist())
+    except zipfile.BadZipFile as error:
+        raise UnsupportedFormat(f"{path.name} is not a readable .docx file.") from error
+
+    if uncompressed > MAX_DOCX_UNCOMPRESSED:
+        raise UnsupportedFormat(
+            f"{path.name} expands to {uncompressed // (1024 * 1024)} MB, which is too large to read."
+        )
 
 
 def _docx_to_markdown(document) -> str:

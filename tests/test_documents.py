@@ -167,3 +167,23 @@ def test_supported_filter_lists_every_readable_extension():
         assert extension in supported_filter()
     assert "*.doc " not in supported_filter()
     assert "*.doc)" not in supported_filter()
+
+
+def test_docx_zip_bomb_is_rejected(tmp_path):
+    import zipfile
+
+    bomb = tmp_path / "bomb.docx"
+    with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", b"A" * 200_000_000)
+
+    with pytest.raises(UnsupportedFormat) as error:
+        load(bomb)
+    assert "too large" in str(error.value).lower()
+
+
+def test_corrupt_docx_gives_a_clean_error(tmp_path):
+    broken = tmp_path / "broken.docx"
+    broken.write_bytes(b"this is not a zip archive")
+
+    with pytest.raises(UnsupportedFormat):
+        load(broken)

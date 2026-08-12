@@ -130,6 +130,11 @@ async function run() {
 
   try {
     const response = await fetch("/api/rewrite", { method: "POST", body });
+    if (!response.ok) {
+      fail({ error: await describeFailure(response) });
+      return;
+    }
+
     for await (const event of readEvents(response)) {
       if (event.stage) {
         el("stage").textContent = event.label;
@@ -146,6 +151,16 @@ async function run() {
     state.busy = false;
     runButton.disabled = false;
     runButton.textContent = "Humanise";
+  }
+}
+
+async function describeFailure(response) {
+  const fallback = "The server rejected that request (" + response.status + ").";
+  try {
+    const payload = await response.json();
+    return payload.detail || fallback;
+  } catch (unreadableBody) {
+    return fallback;
   }
 }
 

@@ -5,8 +5,9 @@ import queue
 import tempfile
 import threading
 from pathlib import Path
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from markdown_it import MarkdownIt
@@ -17,6 +18,8 @@ from content_rewriter.pipeline import Stage, run_text, write_error_log
 from content_rewriter.rewriter import Rewriter, Settings
 
 STATIC = Path(__file__).parent / "static"
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 STAGE_PROGRESS = {
     Stage.READING: 12,
@@ -42,15 +45,23 @@ def build_rewriter():
     return Rewriter(Settings.from_env())
 
 
+def same_origin(request: Request):
+    origin = request.headers.get("origin")
+    if origin and urlparse(origin).netloc != request.headers.get("host"):
+        raise HTTPException(status_code=403, detail="Cross-origin requests are not allowed.")
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (STATIC / "index.html").read_text(encoding="utf-8")
 
 
-@app.post("/api/preview")
+@app.post("/api/preview", dependencies=[Depends(same_origin)])
 async def preview(file: UploadFile):
     try:
-        text = _read_upload(file.filename, await file.read())
+        text = _read_upload(file.filename, await _read_capped(file))
+    except HTTPException:
+        raise
     except Exception as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -63,16 +74,16 @@ async def preview(file: UploadFile):
     }
 
 
-@app.post("/api/rewrite")
+@app.post("/api/rewrite", dependencies=[Depends(same_origin)])
 async def rewrite(text: str = Form(default=""), file: UploadFile | None = None):
     upload = None
     if file is not None and file.filename:
-        upload = (file.filename, await file.read())
+        upload = (file.filename, await _read_capped(file))
 
     return StreamingResponse(_stream(text, upload), media_type="application/x-ndjson")
 
 
-@app.post("/api/download")
+@app.post("/api/download", dependencies=[Depends(same_origin)])
 def download(request: DownloadRequest):
     name = Path(request.filename).name or "rewritten.txt"
 
@@ -125,6 +136,16 @@ def _run(text, upload, events):
         events.put(_failure(error))
     finally:
         events.put(None)
+
+
+async def _read_capped(file: UploadFile) -> bytes:
+    payload = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"That file is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+    return payload
 
 
 def _read_upload(name, payload):
