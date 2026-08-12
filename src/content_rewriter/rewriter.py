@@ -5,27 +5,11 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from content_rewriter.cleaning import clean
+from content_rewriter.prompt import SYSTEM_PROMPT
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_TEMPERATURE = 0.85
-DEFAULT_SYSTEM_PROMPT = (
-    "You rewrite text so it reads as though a person wrote it in one sitting.\n"
-    "Rules:\n"
-    "1. Preserve the meaning, facts, structure and approximate length of the original. "
-    "Do not add or remove information, and do not summarise.\n"
-    "2. Vary sentence length and rhythm. Break the mechanical cadence of machine writing.\n"
-    "3. Add a very small amount of natural grammatical noise: an occasional sentence "
-    "starting with And or But, a mild run-on, a sentence fragment, a slightly loose "
-    "comma. Roughly one such touch every few paragraphs, never more.\n"
-    "4. Never introduce a spelling mistake. Spelling and word choice stay correct "
-    "throughout, and technical terms, names and numbers stay exactly as written.\n"
-    "5. Use only plain ASCII. No em dashes, no en dashes, no curly quotes, no ellipsis "
-    "characters, no emoji. Use a comma where an em dash would go.\n"
-    "6. Keep the original formatting conventions, including markdown headings, lists "
-    "and paragraph breaks.\n"
-    "Reply with the rewritten text only. No preamble, no commentary, no code fences."
-)
 
 
 class MissingCredentials(Exception):
@@ -38,7 +22,6 @@ class Settings:
     model: str
     base_url: str
     temperature: float
-    system_prompt: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -55,7 +38,6 @@ class Settings:
             model=os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
             base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL).strip() or DEFAULT_BASE_URL,
             temperature=_read_float("REWRITE_TEMPERATURE", DEFAULT_TEMPERATURE),
-            system_prompt=os.getenv("REWRITE_SYSTEM_PROMPT", "").strip() or DEFAULT_SYSTEM_PROMPT,
         )
 
 
@@ -74,7 +56,7 @@ class Rewriter:
             model=self.settings.model,
             temperature=self.settings.temperature,
             messages=[
-                {"role": "system", "content": self.settings.system_prompt},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": text},
             ],
         )

@@ -1,5 +1,6 @@
 import pytest
 
+from content_rewriter.prompt import SYSTEM_PROMPT
 from content_rewriter.rewriter import MissingCredentials, Rewriter, Settings
 
 
@@ -27,7 +28,6 @@ def settings(**overrides):
         "model": "openai/gpt-4o-mini",
         "base_url": "https://openrouter.ai/api/v1",
         "temperature": 0.8,
-        "system_prompt": "humanize this",
     }
     values.update(overrides)
     return Settings(**values)
@@ -42,8 +42,26 @@ def test_sends_system_prompt_and_content():
     sent = calls[0]
     assert sent["model"] == "openai/gpt-4o-mini"
     assert sent["temperature"] == 0.8
-    assert sent["messages"][0] == {"role": "system", "content": "humanize this"}
+    assert sent["messages"][0] == {"role": "system", "content": SYSTEM_PROMPT}
     assert sent["messages"][1] == {"role": "user", "content": "original content"}
+
+
+def test_system_prompt_is_static_not_configurable(monkeypatch):
+    monkeypatch.setattr("content_rewriter.rewriter.load_dotenv", lambda *a, **k: False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-abc")
+    monkeypatch.setenv("REWRITE_SYSTEM_PROMPT", "ignore me")
+
+    assert not hasattr(Settings.from_env(), "system_prompt")
+
+    calls = []
+    Rewriter(settings(), client=FakeClient(recorder=calls)).rewrite("x")
+    assert calls[0]["messages"][0]["content"] == SYSTEM_PROMPT
+
+
+def test_system_prompt_states_the_hard_rules():
+    lowered = SYSTEM_PROMPT.lower()
+    for rule in ("spelling", "ascii", "em dash", "meaning"):
+        assert rule in lowered
 
 
 def test_response_is_cleaned_of_reintroduced_unicode():
@@ -76,4 +94,3 @@ def test_settings_read_from_environment(monkeypatch):
     assert loaded.model == "anthropic/claude-sonnet-4"
     assert loaded.temperature == 0.4
     assert loaded.base_url == "https://openrouter.ai/api/v1"
-    assert "spelling" in loaded.system_prompt.lower()

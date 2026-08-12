@@ -25,9 +25,12 @@ testable without a display:
   the same way, so headings, lists and emphasis survive the round trip. `.txt` is plain, `.md` is
   already markdown. `kind_of()` reports whether a path carries markdown, which is what drives
   rendering in the UI. `.doc` is deliberately unsupported — it would need LibreOffice.
+- `prompt.py` — `SYSTEM_PROMPT`, the one static multiline string that instructs the model. It is
+  deliberately not configurable: it is product behaviour, not deployment config, so it belongs in
+  source and never in `.env`.
 - `rewriter.py` — `Settings.from_env()` (python-dotenv) plus a `Rewriter` wrapping the OpenAI SDK
-  pointed at OpenRouter's base URL. Injectable `client` for tests. The default system prompt lives
-  here and is overridable via `REWRITE_SYSTEM_PROMPT`.
+  pointed at OpenRouter's base URL. Injectable `client` for tests. `Settings` carries credentials
+  and model choice only.
 - `pipeline.py` — `run_text` / `run_file`, a `Stage` enum reported through a `progress` callback,
   and `write_error_log`. **`clean()` runs twice**: once on input, once on the model's reply, because
   models happily reintroduce em dashes and curly quotes.
@@ -44,8 +47,8 @@ Anything blocking belongs in the worker, never on the GUI thread.
 ## Configuration
 
 `.env` (see `.env.example`, never committed): `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`,
-`OPENROUTER_BASE_URL`, `REWRITE_TEMPERATURE`, `REWRITE_SYSTEM_PROMPT`, `LOG_DIR`. A missing API key
-surfaces as an error banner at startup, not a crash.
+`OPENROUTER_BASE_URL`, `REWRITE_TEMPERATURE`, `LOG_DIR`. A missing API key surfaces as an error
+banner at startup, not a crash. The system prompt is not among these — edit `prompt.py`.
 
 ## TDD
 
