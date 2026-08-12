@@ -89,6 +89,25 @@ uv add --dev <pkg>       # dev-only dependency
 CI: `.github/workflows/build.yml`, manual `workflow_dispatch` only. Runs the suite on
 Linux/macOS/Windows and checks the app's routes register.
 
+## Deployment
+
+`start.sh` + `ecosystem.config.js` run the app under pm2 on an always-on host. The script resolves
+`uv` explicitly (pm2's environment usually lacks `~/.local/bin` on `PATH`), refuses to start
+without `.env`, runs `uv sync --frozen --no-dev`, then `exec`s the server so pm2 tracks the real
+process — `uv run` forks a child, and without `exec` a `pm2 stop` would leave the port held.
+
+```bash
+pm2 start ecosystem.config.js && pm2 save
+```
+
+The ecosystem file sets `HOST=0.0.0.0`, which is the one place the loopback rule is deliberately
+broken so the app is reachable from the network. Anyone who can reach that port can spend the configured
+OpenRouter credit, so it belongs on a private network, or behind a reverse proxy
+that authenticates. Do not copy that setting into local development.
+
+`--no-dev` prunes pytest from the venv, so after running `start.sh` on a dev machine, restore the
+test tooling with `uv sync --all-groups`.
+
 ## Conventions
 
 - No code comments. Write self-explanatory names instead. This includes docstrings on obvious

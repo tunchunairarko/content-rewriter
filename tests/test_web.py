@@ -257,3 +257,32 @@ def test_preview_rejects_an_unsupported_file(client):
         "/api/preview", files={"file": ("sheet.pdf", b"%PDF-1.4", "application/pdf")}
     )
     assert response.status_code == 400
+
+
+def test_host_defaults_to_loopback(monkeypatch):
+    from content_rewriter.__main__ import resolve_host
+
+    monkeypatch.delenv("HOST", raising=False)
+    assert resolve_host([]) == "127.0.0.1"
+
+
+def test_host_comes_from_the_environment(monkeypatch):
+    from content_rewriter.__main__ import resolve_host
+
+    monkeypatch.setenv("HOST", "0.0.0.0")
+    assert resolve_host([]) == "0.0.0.0"
+
+
+def test_host_flag_beats_the_environment(monkeypatch):
+    from content_rewriter.__main__ import resolve_host
+
+    monkeypatch.setenv("HOST", "0.0.0.0")
+    assert resolve_host(["--host", "192.168.1.50"]) == "192.168.1.50"
+
+
+def test_port_flag_beats_the_environment(monkeypatch):
+    from content_rewriter.__main__ import resolve_port
+
+    monkeypatch.setenv("PORT", "9000")
+    assert resolve_port([]) == 9000
+    assert resolve_port(["--port", "8080"]) == 8080
