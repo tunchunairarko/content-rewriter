@@ -28,6 +28,9 @@ def settings(**overrides):
         "model": "openai/gpt-4o-mini",
         "base_url": "https://openrouter.ai/api/v1",
         "temperature": 0.8,
+        "top_p": 1.0,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0,
     }
     values.update(overrides)
     return Settings(**values)
@@ -60,8 +63,20 @@ def test_system_prompt_is_static_not_configurable(monkeypatch):
 
 def test_system_prompt_states_the_hard_rules():
     lowered = SYSTEM_PROMPT.lower()
-    for rule in ("spelling", "ascii", "em dash", "meaning"):
+    for rule in ("spelling", "ascii", "em dash", "fact", "figure", "name"):
         assert rule in lowered
+
+
+def test_system_prompt_demands_a_real_rewrite():
+    lowered = SYSTEM_PROMPT.lower()
+    assert "rewrite every paragraph" in lowered
+    assert "vary sentence length" in lowered
+
+
+def test_system_prompt_does_not_clamp_the_rewrite():
+    lowered = SYSTEM_PROMPT.lower()
+    for clamp in ("almost as-is", "do not change the tone", "never more", "very small amount"):
+        assert clamp not in lowered
 
 
 def test_response_is_cleaned_of_reintroduced_unicode():
@@ -94,3 +109,38 @@ def test_settings_read_from_environment(monkeypatch):
     assert loaded.model == "anthropic/claude-sonnet-4"
     assert loaded.temperature == 0.4
     assert loaded.base_url == "https://openrouter.ai/api/v1"
+
+
+def test_sampling_parameters_are_sent():
+    calls = []
+    Rewriter(
+        settings(top_p=0.92, frequency_penalty=0.4, presence_penalty=0.3),
+        client=FakeClient(recorder=calls),
+    ).rewrite("x")
+
+    assert calls[0]["top_p"] == 0.92
+    assert calls[0]["frequency_penalty"] == 0.4
+    assert calls[0]["presence_penalty"] == 0.3
+
+
+def test_neutral_penalties_are_omitted_for_models_that_reject_them():
+    calls = []
+    Rewriter(settings(), client=FakeClient(recorder=calls)).rewrite("x")
+
+    assert "frequency_penalty" not in calls[0]
+    assert "presence_penalty" not in calls[0]
+    assert calls[0]["top_p"] == 1.0
+
+
+def test_sampling_parameters_come_from_the_environment(monkeypatch):
+    monkeypatch.setattr("content_rewriter.rewriter.load_dotenv", lambda *a, **k: False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-abc")
+    monkeypatch.setenv("REWRITE_TOP_P", "0.9")
+    monkeypatch.setenv("REWRITE_FREQUENCY_PENALTY", "0.5")
+    monkeypatch.setenv("REWRITE_PRESENCE_PENALTY", "0.25")
+
+    loaded = Settings.from_env()
+
+    assert loaded.top_p == 0.9
+    assert loaded.frequency_penalty == 0.5
+    assert loaded.presence_penalty == 0.25

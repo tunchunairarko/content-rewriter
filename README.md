@@ -58,6 +58,9 @@ All of it lives in `.env`, which is never committed.
 | `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | Any model slug OpenRouter accepts. |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Point at another OpenAI-compatible endpoint if you like. |
 | `REWRITE_TEMPERATURE` | `0.85` | Higher wanders further from the original phrasing. |
+| `REWRITE_TOP_P` | `1.0` | Nucleus sampling. Lower values narrow the token pool. |
+| `REWRITE_FREQUENCY_PENALTY` | `0.0` | Discourages reusing the same words. Omitted from the request when zero. |
+| `REWRITE_PRESENCE_PENALTY` | `0.0` | Pushes toward introducing new wording. Omitted from the request when zero. |
 | `LOG_DIR` | working directory | Where error logs are written. |
 | `HOST` | `127.0.0.1` | Bind address. See the warning below before changing it. |
 | `PORT` | `8765` | Port to listen on. |

@@ -10,6 +10,9 @@ from content_rewriter.prompt import SYSTEM_PROMPT
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_TEMPERATURE = 0.85
+DEFAULT_TOP_P = 1.0
+DEFAULT_FREQUENCY_PENALTY = 0.0
+DEFAULT_PRESENCE_PENALTY = 0.0
 
 
 class MissingCredentials(Exception):
@@ -22,6 +25,9 @@ class Settings:
     model: str
     base_url: str
     temperature: float
+    top_p: float
+    frequency_penalty: float
+    presence_penalty: float
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -38,6 +44,9 @@ class Settings:
             model=os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
             base_url=os.getenv("OPENROUTER_BASE_URL", DEFAULT_BASE_URL).strip() or DEFAULT_BASE_URL,
             temperature=_read_float("REWRITE_TEMPERATURE", DEFAULT_TEMPERATURE),
+            top_p=_read_float("REWRITE_TOP_P", DEFAULT_TOP_P),
+            frequency_penalty=_read_float("REWRITE_FREQUENCY_PENALTY", DEFAULT_FREQUENCY_PENALTY),
+            presence_penalty=_read_float("REWRITE_PRESENCE_PENALTY", DEFAULT_PRESENCE_PENALTY),
         )
 
 
@@ -51,15 +60,24 @@ class Rewriter:
             max_retries=2,
         )
 
-    def rewrite(self, text: str) -> str:
-        completion = self.client.chat.completions.create(
-            model=self.settings.model,
-            temperature=self.settings.temperature,
-            messages=[
+    def _request(self, text: str) -> dict:
+        request = {
+            "model": self.settings.model,
+            "temperature": self.settings.temperature,
+            "top_p": self.settings.top_p,
+            "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": text},
             ],
-        )
+        }
+        if self.settings.frequency_penalty:
+            request["frequency_penalty"] = self.settings.frequency_penalty
+        if self.settings.presence_penalty:
+            request["presence_penalty"] = self.settings.presence_penalty
+        return request
+
+    def rewrite(self, text: str) -> str:
+        completion = self.client.chat.completions.create(**self._request(text))
 
         choices = getattr(completion, "choices", None)
         if not choices:
