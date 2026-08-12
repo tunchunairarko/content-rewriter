@@ -9,13 +9,13 @@ class StubRewriter:
         self.reply = reply
         self.seen = []
 
-    def rewrite(self, text, keywords=()):
+    def rewrite(self, text):
         self.seen.append(text)
         return self.reply
 
 
 class FailingRewriter:
-    def rewrite(self, text, keywords=()):
+    def rewrite(self, text):
         raise RuntimeError("upstream refused")
 
 
@@ -58,7 +58,7 @@ def test_docx_formatting_survives_load_rewrite_save(tmp_path):
     document.save(source)
 
     class Echo:
-        def rewrite(self, text, keywords=()):
+        def rewrite(self, text):
             self.seen = text
             return text
 
@@ -104,36 +104,3 @@ def test_write_error_logs_do_not_collide(tmp_path):
     first = write_error_log(ValueError("a"), directory=tmp_path)
     second = write_error_log(ValueError("b"), directory=tmp_path)
     assert first != second
-
-
-def test_keywords_reach_the_rewriter():
-    class Recorder:
-        def rewrite(self, text, keywords=()):
-            self.keywords = list(keywords)
-            return text
-
-    recorder = Recorder()
-    run_text("some text", recorder, keywords=["alpha", "beta"])
-    assert recorder.keywords == ["alpha", "beta"]
-
-
-def test_surviving_keywords_are_not_reported_missing():
-    result = run_text("intro", StubRewriter(reply="alpha and beta both survive"),
-                      keywords=["alpha", "beta"])
-    assert result.missing_keywords == ()
-
-
-def test_dropped_keywords_are_reported():
-    result = run_text("intro", StubRewriter(reply="only alpha survived here"),
-                      keywords=["alpha", "beta", "gamma"])
-    assert result.missing_keywords == ("beta", "gamma")
-
-
-def test_keyword_check_ignores_case_and_cleaning():
-    result = run_text("intro", StubRewriter(reply="Managed IT Services in Toronto"),
-                      keywords=["managed it services", "toronto"])
-    assert result.missing_keywords == ()
-
-
-def test_no_keywords_means_nothing_missing():
-    assert run_text("intro", StubRewriter()).missing_keywords == ()

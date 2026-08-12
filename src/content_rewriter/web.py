@@ -75,18 +75,12 @@ async def preview(file: UploadFile):
 
 
 @app.post("/api/rewrite", dependencies=[Depends(same_origin)])
-async def rewrite(
-    text: str = Form(default=""),
-    keywords: str = Form(default=""),
-    file: UploadFile | None = None,
-):
+async def rewrite(text: str = Form(default=""), file: UploadFile | None = None):
     upload = None
     if file is not None and file.filename:
         upload = (file.filename, await _read_capped(file))
 
-    return StreamingResponse(
-        _stream(text, upload, _split_keywords(keywords)), media_type="application/x-ndjson"
-    )
+    return StreamingResponse(_stream(text, upload), media_type="application/x-ndjson")
 
 
 @app.post("/api/download", dependencies=[Depends(same_origin)])
@@ -102,9 +96,9 @@ def download(request: DownloadRequest):
     return FileResponse(written, filename=name, background=_cleanup(workspace))
 
 
-async def _stream(text, upload, keywords):
+async def _stream(text, upload):
     events = queue.Queue()
-    worker = threading.Thread(target=_run, args=(text, upload, keywords, events), daemon=True)
+    worker = threading.Thread(target=_run, args=(text, upload, events), daemon=True)
     worker.start()
 
     while True:
@@ -114,7 +108,7 @@ async def _stream(text, upload, keywords):
         yield json.dumps(event) + "\n"
 
 
-def _run(text, upload, keywords, events):
+def _run(text, upload, events):
     def report(stage):
         if stage is not Stage.DONE:
             events.put(
@@ -127,7 +121,7 @@ def _run(text, upload, keywords, events):
             report(Stage.READING)
             text = _read_upload(*upload)
 
-        result = run_text(text, build_rewriter(), progress=report, keywords=keywords)
+        result = run_text(text, build_rewriter(), progress=report)
         kind = kind_of(source_name)
         events.put(
             {
@@ -136,22 +130,12 @@ def _run(text, upload, keywords, events):
                 "text": result.text,
                 "html": _render(result.text, kind),
                 "filename": _download_name(source_name),
-                "missing_keywords": list(result.missing_keywords),
             }
         )
     except BaseException as error:
         events.put(_failure(error))
     finally:
         events.put(None)
-
-
-def _split_keywords(raw: str) -> list:
-    parts = [part.strip() for chunk in raw.splitlines() for part in chunk.split(",")]
-    seen = {}
-    for part in parts:
-        if part:
-            seen.setdefault(part.casefold(), part)
-    return list(seen.values())
 
 
 async def _read_capped(file: UploadFile) -> bytes:

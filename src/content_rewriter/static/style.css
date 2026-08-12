@@ -238,38 +238,6 @@ textarea::placeholder { color: var(--text-muted); }
   font-family: inherit;
 }
 
-.keywords {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: none;
-}
-
-.keywords span {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
-}
-
-.keywords input {
-  padding: 9px 12px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 13px;
-}
-
-.keywords input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.keywords input::placeholder { color: #5A6377; }
-
 .cardFooter {
   display: flex;
   align-items: center;

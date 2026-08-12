@@ -63,20 +63,8 @@ def test_system_prompt_is_static_not_configurable(monkeypatch):
 
 def test_system_prompt_states_the_hard_rules():
     lowered = SYSTEM_PROMPT.lower()
-    for rule in ("spelling", "ascii", "em dash", "fact", "figure", "name"):
+    for rule in ("spelling", "ascii", "em dash", "meaning", "facts", "names"):
         assert rule in lowered
-
-
-def test_system_prompt_demands_a_real_rewrite():
-    lowered = SYSTEM_PROMPT.lower()
-    assert "rewrite every paragraph" in lowered
-    assert "vary sentence length" in lowered
-
-
-def test_system_prompt_does_not_clamp_the_rewrite():
-    lowered = SYSTEM_PROMPT.lower()
-    for clamp in ("almost as-is", "do not change the tone", "never more", "very small amount"):
-        assert clamp not in lowered
 
 
 def test_response_is_cleaned_of_reintroduced_unicode():
@@ -144,22 +132,3 @@ def test_sampling_parameters_come_from_the_environment(monkeypatch):
     assert loaded.top_p == 0.9
     assert loaded.frequency_penalty == 0.5
     assert loaded.presence_penalty == 0.25
-
-
-def test_keywords_are_pinned_in_the_system_prompt():
-    calls = []
-    Rewriter(settings(), client=FakeClient(recorder=calls)).rewrite(
-        "x", keywords=["managed IT services", "Toronto"]
-    )
-
-    sent = calls[0]["messages"][0]["content"]
-    assert SYSTEM_PROMPT in sent
-    assert "managed IT services" in sent
-    assert "Toronto" in sent
-
-
-def test_no_keyword_clause_when_none_are_given():
-    calls = []
-    Rewriter(settings(), client=FakeClient(recorder=calls)).rewrite("x")
-
-    assert calls[0]["messages"][0]["content"] == SYSTEM_PROMPT

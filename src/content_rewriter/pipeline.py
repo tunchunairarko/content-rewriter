@@ -20,7 +20,7 @@ class Stage(str, Enum):
 
 
 class SupportsRewrite(Protocol):
-    def rewrite(self, text: str, keywords=()) -> str: ...
+    def rewrite(self, text: str) -> str: ...
 
 
 Progress = Optional[Callable[[Stage], None]]
@@ -29,12 +29,9 @@ Progress = Optional[Callable[[Stage], None]]
 @dataclass(frozen=True)
 class Result:
     text: str
-    missing_keywords: tuple = ()
 
 
-def run_text(
-    text: str, rewriter: SupportsRewrite, progress: Progress = None, keywords=()
-) -> Result:
+def run_text(text: str, rewriter: SupportsRewrite, progress: Progress = None) -> Result:
     report = progress or (lambda stage: None)
 
     report(Stage.CLEANING)
@@ -43,19 +40,13 @@ def run_text(
         raise ValueError("There is no usable text to rewrite once hidden characters are removed.")
 
     report(Stage.REWRITING)
-    terms = [str(k).strip() for k in keywords if str(k).strip()]
-    rewritten = rewriter.rewrite(prepared, keywords=terms)
+    rewritten = rewriter.rewrite(prepared)
 
     report(Stage.POLISHING)
     polished = clean(rewritten)
 
     report(Stage.DONE)
-    return Result(text=polished, missing_keywords=_missing(polished, terms))
-
-
-def _missing(text: str, terms) -> tuple:
-    haystack = clean(text).casefold()
-    return tuple(term for term in terms if clean(term).casefold() not in haystack)
+    return Result(text=polished)
 
 
 def write_error_log(error: BaseException, directory: Optional[Path] = None) -> Path:
