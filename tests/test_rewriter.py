@@ -144,3 +144,22 @@ def test_sampling_parameters_come_from_the_environment(monkeypatch):
     assert loaded.top_p == 0.9
     assert loaded.frequency_penalty == 0.5
     assert loaded.presence_penalty == 0.25
+
+
+def test_keywords_are_pinned_in_the_system_prompt():
+    calls = []
+    Rewriter(settings(), client=FakeClient(recorder=calls)).rewrite(
+        "x", keywords=["managed IT services", "Toronto"]
+    )
+
+    sent = calls[0]["messages"][0]["content"]
+    assert SYSTEM_PROMPT in sent
+    assert "managed IT services" in sent
+    assert "Toronto" in sent
+
+
+def test_no_keyword_clause_when_none_are_given():
+    calls = []
+    Rewriter(settings(), client=FakeClient(recorder=calls)).rewrite("x")
+
+    assert calls[0]["messages"][0]["content"] == SYSTEM_PROMPT

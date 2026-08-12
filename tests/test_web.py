@@ -12,13 +12,13 @@ class StubRewriter:
         self.reply = reply
         self.seen = []
 
-    def rewrite(self, text):
+    def rewrite(self, text, keywords=()):
         self.seen.append(text)
         return self.reply if self.reply is not None else text
 
 
 class FailingRewriter:
-    def rewrite(self, text):
+    def rewrite(self, text, keywords=()):
         raise RuntimeError("upstream refused")
 
 
@@ -333,3 +333,19 @@ def test_same_origin_post_is_allowed(client, stub):
 
 def test_post_without_an_origin_header_is_allowed(client, stub):
     assert client.post("/api/rewrite", data={"text": "hello"}).status_code == 200
+
+
+def test_keywords_are_forwarded_and_reported(client, stub):
+    events = rewrite(client, text="alpha appears here", keywords="alpha, beta\ngamma")
+    payload = final(events)
+
+    assert payload["missing_keywords"] == ["beta", "gamma"]
+
+
+def test_keywords_field_is_optional(client, stub):
+    assert final(rewrite(client, text="plain text"))["missing_keywords"] == []
+
+
+def test_blank_keyword_entries_are_ignored(client, stub):
+    payload = final(rewrite(client, text="alpha here", keywords="alpha, , ,\n\n"))
+    assert payload["missing_keywords"] == []

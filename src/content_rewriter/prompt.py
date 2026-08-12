@@ -34,3 +34,20 @@ Never:
 
 Reply with the rewritten text only.
 """
+
+KEYWORD_CLAUSE = """
+
+These exact terms must survive the rewrite. Reproduce each one letter for letter, with the same
+spelling and capitalisation, and keep it roughly as often as it appears in the original. Rewrite
+the sentences around them freely, never the terms themselves:
+
+{terms}
+"""
+
+
+def with_keywords(keywords) -> str:
+    terms = [str(k).strip() for k in keywords if str(k).strip()]
+    if not terms:
+        return SYSTEM_PROMPT
+    listed = "\n".join(f"- {term}" for term in terms)
+    return SYSTEM_PROMPT.rstrip() + KEYWORD_CLAUSE.format(terms=listed)

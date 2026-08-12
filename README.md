@@ -38,7 +38,12 @@ The server listens on `http://127.0.0.1:8765` and opens a browser tab.
 ## Using it
 
 Paste text into the left pane, or drop a `.txt`, `.md` or `.docx` file onto it. Press **Humanise**
-(or `Cmd`/`Ctrl` + `Enter`). Progress runs along the bottom as the text is cleaned, sent to the
+(or `Cmd`/`Ctrl` + `Enter`).
+
+Terms listed in **Keep these terms unchanged** are pinned: the model is told to reproduce each one
+letter for letter and rewrite only the sentences around it. If one goes missing anyway, the banner
+names it rather than letting it vanish quietly. Pin sparingly, though. Pinned text is text that
+was not rewritten, so a long list gives back the uniformity the rewrite exists to break up. Progress runs along the bottom as the text is cleaned, sent to the
 model, and cleaned again. When it finishes, **Copy** puts the raw text on your clipboard and
 **Download** gives you a file in the original format.
 

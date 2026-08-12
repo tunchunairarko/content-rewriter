@@ -116,6 +116,7 @@ async function run() {
   const body = new FormData();
   if (state.file) body.append("file", state.file);
   else body.append("text", editor.value);
+  body.append("keywords", el("keywords").value);
 
   state.busy = true;
   runButton.disabled = true;
@@ -190,6 +191,13 @@ function finish(payload) {
   resultRendered.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: "ease-out" });
   el("resultCount").textContent = payload.text.length.toLocaleString() + " characters";
   el("stage").textContent = "Finished";
+  if (payload.missing_keywords && payload.missing_keywords.length) {
+    showBanner(
+      "The model dropped these terms: " + payload.missing_keywords.join(", ") +
+        ". Re-run, or add them back by hand.",
+      "error"
+    );
+  }
   copyButton.disabled = false;
   downloadButton.disabled = false;
   setProgress(100);

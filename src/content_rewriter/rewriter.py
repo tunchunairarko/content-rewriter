@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from content_rewriter.cleaning import clean
-from content_rewriter.prompt import SYSTEM_PROMPT
+from content_rewriter.prompt import with_keywords
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
@@ -60,13 +60,13 @@ class Rewriter:
             max_retries=2,
         )
 
-    def _request(self, text: str) -> dict:
+    def _request(self, text: str, keywords) -> dict:
         request = {
             "model": self.settings.model,
             "temperature": self.settings.temperature,
             "top_p": self.settings.top_p,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": with_keywords(keywords)},
                 {"role": "user", "content": text},
             ],
         }
@@ -76,8 +76,8 @@ class Rewriter:
             request["presence_penalty"] = self.settings.presence_penalty
         return request
 
-    def rewrite(self, text: str) -> str:
-        completion = self.client.chat.completions.create(**self._request(text))
+    def rewrite(self, text: str, keywords=()) -> str:
+        completion = self.client.chat.completions.create(**self._request(text, keywords))
 
         choices = getattr(completion, "choices", None)
         if not choices:

@@ -33,7 +33,8 @@ pipeline testable on its own:
   rendering. `.doc` is deliberately unsupported — it would need LibreOffice.
 - `prompt.py` — `SYSTEM_PROMPT`, the one static multiline string that instructs the model. It is
   deliberately not configurable: it is product behaviour, not deployment config, so it belongs in
-  source and never in `.env`.
+  source and never in `.env`. `with_keywords()` appends the pinning clause for a request, and
+  returns `SYSTEM_PROMPT` untouched when there are no keywords.
 - `rewriter.py` — `Settings.from_env()` (python-dotenv) plus a `Rewriter` wrapping the OpenAI SDK
   pointed at OpenRouter's base URL. Injectable `client` for tests. `Settings` carries credentials
   and model choice only.
